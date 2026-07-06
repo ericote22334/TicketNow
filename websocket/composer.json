@@ -1,0 +1,8 @@
+{
+    "name": "ticketnow/websocket-server",
+    "description": "Servidor WebSocket para sincronizar en vivo el mapa de asientos y el stock de TicketNow",
+    "require": {
+        "php": ">=7.4",
+        "cboden/ratchet": "^0.4.4"
+    }
+}

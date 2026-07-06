@@ -1,0 +1,7 @@
+# Bloquea el acceso HTTP directo a esta carpeta (solo se usa via require/include de PHP)
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>
