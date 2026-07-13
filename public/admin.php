@@ -66,6 +66,8 @@ include __DIR__ . '/includes/header.php';
     <div class="col-lg-5">
       <div class="tn-card mb-3">
         <div class="fw-bold fs-5 mb-3 text-center">Gestión de Stock</div>
+        <label class="tn-form-label" for="selector-sector-stock">Sector</label>
+        <select class="tn-input mb-3" id="selector-sector-stock"></select>
         <div class="tn-stock-control mb-3">
           <button class="tn-stock-btn" id="btn-menos">−</button>
           <div class="text-center">
@@ -74,8 +76,23 @@ include __DIR__ . '/includes/header.php';
           </div>
           <button class="tn-stock-btn" id="btn-mas">+</button>
         </div>
-        <button class="btn w-100 py-2" style="background:var(--bg-elevated); border:1px solid var(--card-border); color:var(--cyan);" id="btn-cargar-stock">
+        <div class="text-secondary small mb-3" id="sector-stock-label">Seleccioná un sector para ajustar su capacidad.</div>
+        <div class="row g-2 mt-2">
+          <div class="col-12">
+            <input class="tn-input" id="nuevo-sector-nombre" placeholder="Nombre del sector" />
+          </div>
+          <div class="col-6">
+            <input class="tn-input" id="nuevo-sector-precio" type="number" min="0" step="0.01" placeholder="Precio" />
+          </div>
+          <div class="col-6">
+            <input class="tn-input" id="nuevo-sector-capacidad" type="number" min="1" step="1" placeholder="Capacidad" />
+          </div>
+        </div>
+        <button class="btn w-100 py-2 mt-3" style="background:var(--bg-elevated); border:1px solid var(--card-border); color:var(--cyan);" id="btn-cargar-stock">
           Cargar Nuevo Stock
+        </button>
+        <button class="btn w-100 py-2 mt-2" style="background:rgba(34,197,94,0.14); border:1px solid rgba(34,197,94,0.3); color:#4ade80;" id="btn-crear-sector">
+          Crear Nuevo Sector
         </button>
       </div>
 
@@ -104,7 +121,8 @@ include __DIR__ . '/includes/header.php';
 
 <script>
 const ID_EVENTO = <?= $id_evento ?>;
-const ID_SECTOR_STOCK = <?= $primerSector ? (int)$primerSector : 'null' ?>;
+let ID_SECTOR_STOCK = <?= $primerSector ? (int)$primerSector : 'null' ?>;
+let sectoresDisponibles = [];
 
 function money(n) { return '$' + Number(n).toLocaleString('es-AR'); }
 
@@ -117,7 +135,22 @@ async function cargarStats() {
   document.getElementById('stat-disponibles').textContent = d.disponibles;
   document.getElementById('stat-ocupacion').textContent = d.ocupacion + '%';
   document.getElementById('stat-recaudacion').textContent = '$' + (d.recaudacion/1000000).toFixed(1) + 'M';
-  document.getElementById('stock-actual').textContent = d.total;
+
+  sectoresDisponibles = Array.isArray(d.sectores) ? d.sectores : [];
+  const selector = document.getElementById('selector-sector-stock');
+  selector.innerHTML = sectoresDisponibles.map(s => `<option value="${s.id_sector}" ${String(s.id_sector) === String(ID_SECTOR_STOCK) ? 'selected' : ''}>${s.nombre} · ${s.capacidad} asientos</option>`).join('');
+  if (!sectoresDisponibles.length) {
+    selector.innerHTML = '<option value="">Sin sectores cargados</option>';
+    document.getElementById('stock-actual').textContent = '–';
+    document.getElementById('sector-stock-label').textContent = 'No hay sectores configurados para este evento.';
+    return;
+  }
+  if (!sectoresDisponibles.some(s => String(s.id_sector) === String(ID_SECTOR_STOCK))) {
+    ID_SECTOR_STOCK = sectoresDisponibles[0].id_sector;
+  }
+  const sectorActual = sectoresDisponibles.find(s => String(s.id_sector) === String(ID_SECTOR_STOCK)) || sectoresDisponibles[0];
+  document.getElementById('stock-actual').textContent = sectorActual?.capacidad ?? '–';
+  document.getElementById('sector-stock-label').textContent = `Ajustando capacidad de ${sectorActual?.nombre ?? 'sector'}`;
 
   // Gráfico de barras simple (CSS), altura proporcional a la mayor venta
   const max = Math.max(1, ...d.ventas_por_sector.map(s => Number(s.vendidas) || 0));
@@ -163,12 +196,44 @@ async function ajustarStock(delta) {
   });
   const data = await resp.json();
   if (!resp.ok) { alert(data.error ?? 'No se pudo actualizar el stock'); return; }
+  const sectorActual = sectoresDisponibles.find(s => String(s.id_sector) === String(ID_SECTOR_STOCK));
+  if (sectorActual) {
+    sectorActual.capacidad = Number(data.capacidad ?? sectorActual.capacidad);
+    document.getElementById('stock-actual').textContent = sectorActual.capacidad;
+  }
   cargarStats();
 }
+
+document.getElementById('selector-sector-stock').addEventListener('change', (e) => {
+  ID_SECTOR_STOCK = Number(e.target.value);
+  const sectorActual = sectoresDisponibles.find(s => String(s.id_sector) === String(ID_SECTOR_STOCK));
+  document.getElementById('stock-actual').textContent = sectorActual?.capacidad ?? '–';
+  document.getElementById('sector-stock-label').textContent = sectorActual ? `Ajustando capacidad de ${sectorActual.nombre}` : 'Seleccioná un sector para ajustar su capacidad.';
+});
 
 document.getElementById('btn-mas').addEventListener('click', () => ajustarStock(1));
 document.getElementById('btn-menos').addEventListener('click', () => ajustarStock(-1));
 document.getElementById('btn-cargar-stock').addEventListener('click', () => ajustarStock(1));
+document.getElementById('btn-crear-sector').addEventListener('click', async () => {
+  const nombre = document.getElementById('nuevo-sector-nombre').value.trim();
+  const precio = Number(document.getElementById('nuevo-sector-precio').value);
+  const capacidad = Number(document.getElementById('nuevo-sector-capacidad').value);
+  if (!nombre || !Number.isFinite(precio) || !Number.isFinite(capacidad) || capacidad < 1) {
+    alert('Completá nombre, precio y capacidad válidos para crear el sector.');
+    return;
+  }
+  const resp = await fetch('../api/crear_sector.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id_evento: ID_EVENTO, nombre, precio, capacidad }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) { alert(data.error ?? 'No se pudo crear el sector'); return; }
+  document.getElementById('nuevo-sector-nombre').value = '';
+  document.getElementById('nuevo-sector-precio').value = '';
+  document.getElementById('nuevo-sector-capacidad').value = '';
+  cargarStats();
+});
 
 cargarStats();
 setInterval(cargarStats, 5000); // refresco de respaldo cada 5s

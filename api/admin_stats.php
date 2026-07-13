@@ -51,6 +51,16 @@ $stmt = $pdo->prepare(
 $stmt->execute([':id_evento' => $id_evento]);
 $ocupacionPorSector = $stmt->fetchAll();
 
+// Sectores disponibles del evento para el panel de administración
+$stmt = $pdo->prepare(
+    "SELECT id_sector, nombre, capacidad
+     FROM sector
+     WHERE id_evento = :id_evento
+     ORDER BY precio DESC, id_sector ASC"
+);
+$stmt->execute([':id_evento' => $id_evento]);
+$sectores = $stmt->fetchAll();
+
 // Últimas ventas
 $stmt = $pdo->prepare(
     "SELECT va.id_venta_asiento AS id, s.nombre AS sector, a.fila, a.numero, va.precio, v.estado
@@ -74,5 +84,6 @@ jsonResponse(200, [
     'recaudacion' => $recaudacion,
     'ventas_por_sector' => $ventasPorSector,
     'ocupacion_por_sector' => $ocupacionPorSector,
+    'sectores' => $sectores,
     'ultimas_ventas' => $ultimasVentas,
 ]);

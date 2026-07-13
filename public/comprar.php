@@ -56,10 +56,10 @@ include __DIR__ . '/includes/header.php';
           <div class="col-6"><div class="tn-payment-option" data-metodo="Transferencia">Transferencia</div></div>
         </div>
         <div class="row g-2 mb-3">
-          <div class="col-12"><input class="tn-input" placeholder="Número de tarjeta"></div>
-          <div class="col-12"><input class="tn-input" placeholder="Titular de la tarjeta"></div>
-          <div class="col-6"><input class="tn-input" placeholder="MM / AA"></div>
-          <div class="col-6"><input class="tn-input" placeholder="CVV"></div>
+          <div class="col-12"><input class="tn-input" id="f-tarjeta" placeholder="Número de tarjeta"></div>
+          <div class="col-12"><input class="tn-input" id="f-titular" placeholder="Titular de la tarjeta"></div>
+          <div class="col-6"><input class="tn-input" id="f-vencimiento" placeholder="MM / AA"></div>
+          <div class="col-6"><input class="tn-input" id="f-cvv" placeholder="CVV"></div>
         </div>
         <div class="d-flex align-items-center gap-2 p-3 mb-3 rounded" style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.25); color:#4ade80; font-size:0.85rem;">
           🔒 Transacción segura · Cifrado SSL 256-bit · PCI DSS
@@ -161,9 +161,34 @@ function mostrarToast(titulo, mensaje, ok = false) {
   setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
+function validarFormulario() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  const apellido = document.getElementById('f-apellido').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const telefono = document.getElementById('f-telefono').value.trim();
+  const tarjeta = document.getElementById('f-tarjeta').value.trim();
+  const titular = document.getElementById('f-titular').value.trim();
+  const vencimiento = document.getElementById('f-vencimiento').value.trim();
+  const cvv = document.getElementById('f-cvv').value.trim();
+
+  if (!nombre) { mostrarToast('Faltan datos', 'Ingresá tu nombre.'); return false; }
+  if (!apellido) { mostrarToast('Faltan datos', 'Ingresá tu apellido.'); return false; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { mostrarToast('Email inválido', 'Ingresá un correo electrónico válido.'); return false; }
+  if (!telefono || !/^\+?[0-9\s()-]{7,15}$/.test(telefono)) { mostrarToast('Teléfono inválido', 'Ingresá un teléfono válido.'); return false; }
+  if (!tarjeta || tarjeta.replace(/\s+/g, '').length < 12) { mostrarToast('Tarjeta inválida', 'Ingresá un número de tarjeta válido.'); return false; }
+  if (!titular || titular.length < 3) { mostrarToast('Titular inválido', 'Ingresá el nombre del titular.'); return false; }
+  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(vencimiento)) { mostrarToast('Vencimiento inválido', 'Usá el formato MM/AA.'); return false; }
+  if (!/^\d{3,4}$/.test(cvv)) { mostrarToast('CVV inválido', 'Ingresá un CVV de 3 o 4 dígitos.'); return false; }
+  if (!metodoPago) { mostrarToast('Método de pago', 'Seleccioná un método de pago.'); return false; }
+  return true;
+}
+
 document.getElementById('btn-confirmar').addEventListener('click', async () => {
   if (!carrito || !carrito.asientos || carrito.asientos.length === 0) {
     mostrarToast('Carrito vacío', 'Elegí al menos un asiento antes de confirmar.');
+    return;
+  }
+  if (!validarFormulario()) {
     return;
   }
 

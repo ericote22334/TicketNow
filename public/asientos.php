@@ -172,11 +172,38 @@ function renderPanel() {
   btnContinuar.style.opacity = '1';
 }
 
+async function refrescarMapa() {
+  try {
+    const resp = await fetch(`../api/asientos.php?id_evento=${ID_EVENTO}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const estados = new Map();
+    data.sectores?.forEach(sector => {
+      sector.asientos?.forEach(asiento => {
+        estados.set(String(asiento.id_asiento), asiento.estado);
+      });
+    });
+
+    document.querySelectorAll('.asiento-btn').forEach(btn => {
+      const id = String(btn.dataset.asientoId);
+      const estadoServidor = estados.get(id);
+      if (!estadoServidor) return;
+      if (seleccionados.has(id)) {
+        pintarAsiento(id, 'mia');
+      } else {
+        pintarAsiento(id, estadoServidor);
+      }
+    });
+    document.getElementById('ultima-sync').textContent = 'hace instantes';
+  } catch (e) {
+    console.warn('No se pudo refrescar el mapa', e);
+  }
+}
+
 async function toggleAsiento(btn) {
   const idAsiento = btn.dataset.asientoId;
 
   if (seleccionados.has(idAsiento)) {
-    // liberar
     const resp = await fetch('../api/cancelar_reserva.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -184,7 +211,7 @@ async function toggleAsiento(btn) {
     });
     if (resp.ok) {
       seleccionados.delete(idAsiento);
-      pintarAsiento(idAsiento, 'disponible');
+      await refrescarMapa();
       renderPanel();
     }
     return;
@@ -199,7 +226,7 @@ async function toggleAsiento(btn) {
 
   if (resp.status === 409) {
     mostrarToast('Asiento no disponible', 'Alguien más acaba de reservar esta butaca. Elegí otra.');
-    pintarAsiento(idAsiento, 'reservado');
+    await refrescarMapa();
     return;
   }
   if (!resp.ok) {
@@ -210,7 +237,7 @@ async function toggleAsiento(btn) {
   seleccionados.set(idAsiento, {
     sector: btn.dataset.sector, fila: btn.dataset.fila, numero: btn.dataset.numero, precio: btn.dataset.precio,
   });
-  pintarAsiento(idAsiento, 'mia');
+  await refrescarMapa();
   renderPanel();
 }
 
@@ -227,6 +254,9 @@ document.getElementById('btn-continuar').addEventListener('click', (e) => {
 });
 
 // --- Sincronización en vivo: refleja cambios hechos por OTROS usuarios ---
+refrescarMapa();
+setInterval(refrescarMapa, 4000);
+
 try {
   const ws = new WebSocket('ws://' + location.hostname + ':8080');
   ws.onmessage = (ev) => {
@@ -234,10 +264,7 @@ try {
     document.getElementById('ultima-sync').textContent = 'hace instantes';
 
     if (data.type === 'seat_update' && data.id_evento === ID_EVENTO) {
-      // si el asiento que cambió es uno que YO tengo seleccionado, no lo piso
-      if (!seleccionados.has(String(data.id_asiento))) {
-        pintarAsiento(data.id_asiento, data.estado);
-      }
+      refrescarMapa();
     }
   };
   ws.onclose = () => console.warn('WebSocket desconectado');
