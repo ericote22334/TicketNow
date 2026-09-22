@@ -345,7 +345,10 @@ document.getElementById('btn-continuar').addEventListener('click', (e) => {
 let liberacionEnviada = false;
 
 async function liberarSeleccionAlSalir(usarBeacon = true) {
-  if (liberacionEnviada || avanzandoACompra || seleccionados.size === 0) return;
+  if (liberacionEnviada || avanzandoACompra) return;
+
+  sessionStorage.removeItem('tn_carrito');
+  if (seleccionados.size === 0) return;
 
   const payload = JSON.stringify({
     id_cliente: ID_CLIENTE,

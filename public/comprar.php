@@ -291,13 +291,13 @@ async function liberarCarritoAlSalir(usarBeacon = true) {
   if (
     liberacionEnviada ||
     compraFinalizada ||
-    compraExpirada ||
-    !carrito ||
-    !carrito.asientos ||
-    carrito.asientos.length === 0
+    compraExpirada
   ) {
     return;
   }
+
+  sessionStorage.removeItem('tn_carrito');
+  if (!carrito?.asientos?.length) return;
 
   const payload = JSON.stringify({
     id_cliente: ID_CLIENTE,
