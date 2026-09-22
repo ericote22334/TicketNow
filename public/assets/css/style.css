@@ -473,10 +473,3 @@ a { text-decoration: none; }
 @media (max-width: 768px) {
   .tn-hero h1 { font-size: 2.1rem; }
 }
-.tn-row-clickable {
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.tn-row-clickable:hover {
-  background: rgba(255,255,255,0.04);
-}

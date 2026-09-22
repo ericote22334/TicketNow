@@ -111,7 +111,6 @@ const ID_EVENTO = <?= $id_evento ?>;
 const ID_CLIENTE = 1;
 
 const seleccionados = new Map(); // id_asiento -> {sector, fila, numero, precio}
-let avanzandoACompra = false; // true cuando el propio flujo nos lleva a comprar.php
 
 function mostrarToast(titulo, mensaje, ok = false) {
   const toast = document.getElementById('toast');
@@ -251,22 +250,8 @@ document.getElementById('btn-continuar').addEventListener('click', (e) => {
   if (seleccionados.size === 0) return;
   const payload = { id_evento: ID_EVENTO, id_cliente: ID_CLIENTE, asientos: Array.from(seleccionados, ([id, s]) => ({ id_asiento: Number(id), ...s })) };
   sessionStorage.setItem('tn_carrito', JSON.stringify(payload));
-  avanzandoACompra = true; // vamos a comprar.php con la reserva viva: no liberar
   window.location.href = 'comprar.php';
 });
-
-// --- Liberar la selección si el usuario se va del sitio sin comprar ---
-function liberarSeleccionAlSalir() {
-  if (avanzandoACompra || seleccionados.size === 0) return;
-  const payload = JSON.stringify({
-    id_cliente: ID_CLIENTE,
-    id_evento: ID_EVENTO,
-    asientos: Array.from(seleccionados.keys()).map(Number),
-  });
-  navigator.sendBeacon('../api/liberar_seleccion.php', new Blob([payload], { type: 'application/json' }));
-}
-window.addEventListener('pagehide', liberarSeleccionAlSalir);
-window.addEventListener('beforeunload', liberarSeleccionAlSalir);
 
 // --- Sincronización en vivo: refleja cambios hechos por OTROS usuarios ---
 refrescarMapa();
