@@ -111,7 +111,7 @@ include __DIR__ . '/includes/header.php';
     <div class="table-responsive">
       <table class="table tn-table mb-0" style="color:var(--text);">
         <thead>
-          <tr><th># ID</th><th>Sector</th><th>Fila</th><th>Asiento</th><th>Precio</th><th>Estado</th></tr>
+          <tr><th># Venta</th><th>Cliente</th><th>Fecha</th><th>Entradas</th><th>Método de Pago</th><th>Total</th><th>Estado</th></tr>
         </thead>
         <tbody id="tabla-ventas"></tbody>
       </table>
@@ -176,15 +176,16 @@ async function cargarStats() {
 
   // Últimas ventas
   document.getElementById('tabla-ventas').innerHTML = d.ultimas_ventas.map(v => `
-    <tr>
-      <td class="text-secondary">#${1000 + Number(v.id)}</td>
-      <td>${v.sector}</td>
-      <td>${v.fila}</td>
-      <td>${v.numero}</td>
-      <td class="fw-bold">${money(v.precio)}</td>
-      <td><span class="badge-vendida">✓ Vendida</span></td>
+    <tr class="tn-row-clickable" onclick="location.href='detalle_venta.php?id_venta=${v.id_venta}'">
+      <td class="text-secondary">#${1000 + Number(v.id_venta)}</td>
+      <td>${v.cliente}</td>
+      <td>${v.fecha_venta}</td>
+      <td>${v.cantidad_asientos}</td>
+      <td>${v.metodo_pago}</td>
+      <td class="fw-bold">${money(v.total)}</td>
+      <td><span class="badge-vendida">${v.estado === 'confirmada' ? '✓ Confirmada' : '✕ Cancelada'}</span></td>
     </tr>
-  `).join('') || '<tr><td colspan="6" class="text-secondary text-center py-4">Sin ventas todavía</td></tr>';
+  `).join('') || '<tr><td colspan="7" class="text-secondary text-center py-4">Sin ventas todavía</td></tr>';
 }
 
 async function ajustarStock(delta) {

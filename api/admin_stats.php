@@ -63,13 +63,20 @@ $sectores = $stmt->fetchAll();
 
 // Últimas ventas
 $stmt = $pdo->prepare(
-    "SELECT va.id_venta_asiento AS id, s.nombre AS sector, a.fila, a.numero, va.precio, v.estado
-     FROM venta_asiento va
-     INNER JOIN asiento a ON a.id_asiento = va.id_asiento
-     INNER JOIN sector s ON s.id_sector = a.id_sector
-     INNER JOIN venta v ON v.id_venta = va.id_venta
+    "SELECT
+        v.id_venta,
+        DATE_FORMAT(v.fecha_venta, '%d/%m/%Y %H:%i') AS fecha_venta,
+        v.metodo_pago,
+        v.total,
+        v.estado,
+        CONCAT(c.nombre, ' ', c.apellido) AS cliente,
+        COUNT(va.id_venta_asiento) AS cantidad_asientos
+     FROM venta v
+     INNER JOIN cliente c ON c.id_cliente = v.id_cliente
+     LEFT JOIN venta_asiento va ON va.id_venta = v.id_venta
      WHERE v.id_evento = :id_evento
-     ORDER BY va.id_venta_asiento DESC
+     GROUP BY v.id_venta
+     ORDER BY v.id_venta DESC
      LIMIT 20"
 );
 $stmt->execute([':id_evento' => $id_evento]);

@@ -108,6 +108,7 @@ include __DIR__ . '/includes/header.php';
 <script>
 const ID_CLIENTE = 1; // en producción: id de la sesión autenticada
 let metodoPago = 'Tarjeta de Crédito';
+let compraFinalizada = false; // true recién cuando confirmar_compra.php responde OK
 
 const carrito = JSON.parse(sessionStorage.getItem('tn_carrito') || 'null');
 
@@ -213,10 +214,24 @@ document.getElementById('btn-confirmar').addEventListener('click', async () => {
     return;
   }
 
+  compraFinalizada = true;
   sessionStorage.removeItem('tn_carrito');
   mostrarToast('¡Compra confirmada!', `Total pagado: ${money(data.total)}. ¡Disfrutá el show!`, true);
   setTimeout(() => window.location.href = 'index.php', 2500);
 });
+
+// --- Liberar el carrito si el usuario abandona el checkout sin pagar ---
+function liberarCarritoAlSalir() {
+  if (compraFinalizada || !carrito || !carrito.asientos || carrito.asientos.length === 0) return;
+  const payload = JSON.stringify({
+    id_cliente: ID_CLIENTE,
+    id_evento: carrito.id_evento,
+    asientos: carrito.asientos.map(a => Number(a.id_asiento)),
+  });
+  navigator.sendBeacon('../api/liberar_seleccion.php', new Blob([payload], { type: 'application/json' }));
+}
+window.addEventListener('pagehide', liberarCarritoAlSalir);
+window.addEventListener('beforeunload', liberarCarritoAlSalir);
 
 renderResumen();
 </script>
