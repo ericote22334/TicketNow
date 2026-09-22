@@ -32,7 +32,7 @@ $activo = $activo ?? '';
       <div class="mx-auto d-flex gap-1 mt-3 mt-lg-0">
         <a class="tn-nav-link <?= $activo === 'inicio' ? 'active' : '' ?>" href="index.php">Inicio</a>
         <a class="tn-nav-link <?= $activo === 'asientos' ? 'active' : '' ?>" href="asientos.php">Asientos</a>
-        <a class="tn-nav-link <?= $activo === 'comprar' ? 'active' : '' ?>" href="comprar.php">Comprar</a>
+        
         <a class="tn-nav-link <?= $activo === 'admin' ? 'active' : '' ?>" href="admin.php">Admin</a>
       </div>
     </div>
