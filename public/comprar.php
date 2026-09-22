@@ -106,10 +106,15 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <script>
-const ID_CLIENTE = 1; // en producción: id de la sesión autenticada
+const ID_CLIENTE = 1;
+
 let metodoPago = 'Tarjeta de Crédito';
 
-const carrito = JSON.parse(sessionStorage.getItem('tn_carrito') || 'null');
+let compraFinalizada = false;
+
+const carrito = JSON.parse(
+  sessionStorage.getItem('tn_carrito') || 'null'
+);
 
 function money(n) { return '$' + Number(n).toLocaleString('es-AR'); }
 
@@ -213,9 +218,57 @@ document.getElementById('btn-confirmar').addEventListener('click', async () => {
     return;
   }
 
+  compraFinalizada = true;
   sessionStorage.removeItem('tn_carrito');
   mostrarToast('¡Compra confirmada!', `Total pagado: ${money(data.total)}. ¡Disfrutá el show!`, true);
   setTimeout(() => window.location.href = 'index.php', 2500);
+});
+
+// Libera los asientos si el usuario abandona el checkout sin pagar.
+let liberacionEnviada = false;
+
+async function liberarCarritoAlSalir(usarBeacon = true) {
+  if (
+    liberacionEnviada ||
+    compraFinalizada ||
+    !carrito ||
+    !carrito.asientos ||
+    carrito.asientos.length === 0
+  ) {
+    return;
+  }
+
+  const payload = JSON.stringify({
+    id_cliente: ID_CLIENTE,
+    id_evento: carrito.id_evento,
+    asientos: carrito.asientos.map(a => Number(a.id_asiento))
+  });
+
+  liberacionEnviada = true;
+  const beaconEnviado = usarBeacon && navigator.sendBeacon(
+    '../api/liberar_seleccion.php',
+    new Blob([payload], { type: 'application/json' })
+  );
+
+  if (!beaconEnviado) {
+    await fetch('../api/liberar_seleccion.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    }).catch(() => {});
+  }
+}
+
+window.addEventListener('pagehide', liberarCarritoAlSalir);
+window.addEventListener('beforeunload', liberarCarritoAlSalir);
+document.addEventListener('click', async (event) => {
+  const link = event.target.closest('a[href]');
+  if (!link || compraFinalizada || !carrito?.asientos?.length) return;
+
+  event.preventDefault();
+  const destino = link.href;
+  await liberarCarritoAlSalir(false);
+  window.location.href = destino;
 });
 
 renderResumen();

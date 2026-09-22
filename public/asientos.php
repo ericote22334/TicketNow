@@ -111,6 +111,7 @@ const ID_EVENTO = <?= $id_evento ?>;
 const ID_CLIENTE = 1;
 
 const seleccionados = new Map(); // id_asiento -> {sector, fila, numero, precio}
+let avanzandoACompra = false;
 
 function mostrarToast(titulo, mensaje, ok = false) {
   const toast = document.getElementById('toast');
@@ -247,10 +248,67 @@ document.querySelectorAll('.asiento-btn').forEach(btn => {
 
 document.getElementById('btn-continuar').addEventListener('click', (e) => {
   e.preventDefault();
-  if (seleccionados.size === 0) return;
-  const payload = { id_evento: ID_EVENTO, id_cliente: ID_CLIENTE, asientos: Array.from(seleccionados, ([id, s]) => ({ id_asiento: Number(id), ...s })) };
-  sessionStorage.setItem('tn_carrito', JSON.stringify(payload));
+  if (avanzandoACompra || seleccionados.size === 0) return;
+
+  const payload = {
+    id_evento: ID_EVENTO,
+    id_cliente: ID_CLIENTE,
+    asientos: Array.from(
+      seleccionados,
+      ([id, s]) => ({
+        id_asiento: Number(id),
+        ...s
+      })
+    )
+  };
+
+  sessionStorage.setItem(
+    'tn_carrito',
+    JSON.stringify(payload)
+  );
+
+  // No liberar los asientos porque vamos a comprar.
+  avanzandoACompra = true;
   window.location.href = 'comprar.php';
+});
+
+// Libera los asientos si el usuario abandona la página sin ir a comprar.
+let liberacionEnviada = false;
+
+async function liberarSeleccionAlSalir(usarBeacon = true) {
+  if (liberacionEnviada || avanzandoACompra || seleccionados.size === 0) return;
+
+  const payload = JSON.stringify({
+    id_cliente: ID_CLIENTE,
+    id_evento: ID_EVENTO,
+    asientos: Array.from(seleccionados.keys()).map(Number)
+  });
+
+  liberacionEnviada = true;
+  const beaconEnviado = usarBeacon && navigator.sendBeacon(
+    '../api/liberar_seleccion.php',
+    new Blob([payload], { type: 'application/json' })
+  );
+
+  if (!beaconEnviado) {
+    await fetch('../api/liberar_seleccion.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    }).catch(() => {});
+  }
+}
+
+window.addEventListener('pagehide', liberarSeleccionAlSalir);
+window.addEventListener('beforeunload', liberarSeleccionAlSalir);
+document.addEventListener('click', async (event) => {
+  const link = event.target.closest('a[href]');
+  if (!link || link.id === 'btn-continuar' || avanzandoACompra || seleccionados.size === 0) return;
+
+  event.preventDefault();
+  const destino = link.href;
+  await liberarSeleccionAlSalir(false);
+  window.location.href = destino;
 });
 
 // --- Sincronización en vivo: refleja cambios hechos por OTROS usuarios ---
