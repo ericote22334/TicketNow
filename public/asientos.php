@@ -300,10 +300,17 @@ async function liberarSeleccionAlSalir(usarBeacon = true) {
 }
 
 window.addEventListener('pagehide', liberarSeleccionAlSalir);
-window.addEventListener('beforeunload', liberarSeleccionAlSalir);
+window.addEventListener('beforeunload', (event) => {
+  if (avanzandoACompra || seleccionados.size === 0) return;
+
+  event.preventDefault();
+  event.returnValue = '';
+});
 document.addEventListener('click', async (event) => {
   const link = event.target.closest('a[href]');
   if (!link || link.id === 'btn-continuar' || avanzandoACompra || seleccionados.size === 0) return;
+
+  if (!window.confirm('¿Estás seguro de salir? Perderás los asientos seleccionados.')) return;
 
   event.preventDefault();
   const destino = link.href;

@@ -260,10 +260,17 @@ async function liberarCarritoAlSalir(usarBeacon = true) {
 }
 
 window.addEventListener('pagehide', liberarCarritoAlSalir);
-window.addEventListener('beforeunload', liberarCarritoAlSalir);
+window.addEventListener('beforeunload', (event) => {
+  if (compraFinalizada || !carrito?.asientos?.length) return;
+
+  event.preventDefault();
+  event.returnValue = '';
+});
 document.addEventListener('click', async (event) => {
   const link = event.target.closest('a[href]');
   if (!link || compraFinalizada || !carrito?.asientos?.length) return;
+
+  if (!window.confirm('¿Estás seguro de salir? Se liberarán los asientos seleccionados.')) return;
 
   event.preventDefault();
   const destino = link.href;
