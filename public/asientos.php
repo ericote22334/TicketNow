@@ -84,6 +84,9 @@ include __DIR__ . '/includes/header.php';
           <span class="fw-bold">Asientos Seleccionados</span>
           <span class="fw-bold" id="contador-seleccionados">0</span>
         </div>
+        <div id="temporizador-reserva" class="small mb-3" style="display:none; color:var(--orange);">
+          ⏱️ Tiempo para comprar: <strong id="tiempo-restante">05:00</strong>
+        </div>
         <div id="lista-seleccionados" class="text-secondary text-center py-4">
           📍 Hacé click en un asiento verde para seleccionarlo
         </div>
@@ -111,7 +114,9 @@ const ID_EVENTO = <?= $id_evento ?>;
 const ID_CLIENTE = 1;
 
 const seleccionados = new Map(); // id_asiento -> {sector, fila, numero, precio}
+const expiraciones = new Map(); // id_asiento -> timestamp de expiración
 let avanzandoACompra = false;
+let intervaloTemporizador = null;
 
 function mostrarToast(titulo, mensaje, ok = false) {
   const toast = document.getElementById('toast');
@@ -141,9 +146,11 @@ function pintarAsiento(idAsiento, estado) {
 function renderPanel() {
   const cont = document.getElementById('lista-seleccionados');
   const contador = document.getElementById('contador-seleccionados');
+  const temporizador = document.getElementById('temporizador-reserva');
   contador.textContent = seleccionados.size;
 
   if (seleccionados.size === 0) {
+    temporizador.style.display = 'none';
     cont.innerHTML = '📍 Hacé click en un asiento verde para seleccionarlo';
     cont.className = 'text-secondary text-center py-4';
     document.getElementById('btn-continuar').classList.add('disabled');
@@ -152,6 +159,7 @@ function renderPanel() {
     return;
   }
 
+  temporizador.style.display = 'block';
   cont.className = '';
   let total = 0;
   let html = '';
@@ -172,6 +180,60 @@ function renderPanel() {
   btnContinuar.style.pointerEvents = 'auto';
   btnContinuar.style.opacity = '1';
 }
+
+function actualizarTemporizador() {
+  if (seleccionados.size === 0) {
+    clearInterval(intervaloTemporizador);
+    intervaloTemporizador = null;
+    return;
+  }
+
+  const ahora = Date.now();
+  const expiracionMasCercana = Math.min(...seleccionados.keys()
+    .map(id => expiraciones.get(id) ?? ahora));
+  const segundos = Math.max(0, Math.ceil((expiracionMasCercana - ahora) / 1000));
+  const minutos = String(Math.floor(segundos / 60)).padStart(2, '0');
+  const restantes = String(segundos % 60).padStart(2, '0');
+  document.getElementById('tiempo-restante').textContent = `${minutos}:${restantes}`;
+
+  if (segundos <= 60) {
+    document.getElementById('temporizador-reserva').style.color = '#f87171';
+  }
+}
+
+function iniciarTemporizador() {
+  if (intervaloTemporizador === null) {
+    intervaloTemporizador = setInterval(actualizarTemporizador, 1000);
+  }
+  actualizarTemporizador();
+}
+
+async function liberarAsientoExpirado(idAsiento) {
+  if (!seleccionados.has(idAsiento)) return;
+
+  expiraciones.delete(idAsiento);
+  seleccionados.delete(idAsiento);
+  await fetch('../api/liberar_seleccion.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      id_cliente: ID_CLIENTE,
+      id_evento: ID_EVENTO,
+      asientos: [Number(idAsiento)]
+    })
+  }).catch(() => {});
+
+  mostrarToast('Reserva expirada', 'El tiempo para comprar ese asiento terminó.');
+  await refrescarMapa();
+  renderPanel();
+}
+
+setInterval(() => {
+  const ahora = Date.now();
+  expiraciones.forEach((expiracion, idAsiento) => {
+    if (expiracion <= ahora) liberarAsientoExpirado(idAsiento);
+  });
+}, 1000);
 
 async function refrescarMapa() {
   try {
@@ -212,6 +274,7 @@ async function toggleAsiento(btn) {
     });
     if (resp.ok) {
       seleccionados.delete(idAsiento);
+      expiraciones.delete(idAsiento);
       await refrescarMapa();
       renderPanel();
     }
@@ -238,8 +301,13 @@ async function toggleAsiento(btn) {
   seleccionados.set(idAsiento, {
     sector: btn.dataset.sector, fila: btn.dataset.fila, numero: btn.dataset.numero, precio: btn.dataset.precio,
   });
+  expiraciones.set(
+    idAsiento,
+    Date.now() + Number(data.expira_en_segundos ?? 300) * 1000
+  );
   await refrescarMapa();
   renderPanel();
+  iniciarTemporizador();
 }
 
 document.querySelectorAll('.asiento-btn').forEach(btn => {
@@ -257,6 +325,7 @@ document.getElementById('btn-continuar').addEventListener('click', (e) => {
       seleccionados,
       ([id, s]) => ({
         id_asiento: Number(id),
+        expira_at: expiraciones.get(id),
         ...s
       })
     )

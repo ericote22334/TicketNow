@@ -84,6 +84,10 @@ include __DIR__ . '/includes/header.php';
 
         <div id="resumen-asientos"></div>
 
+        <div id="temporizador-compra" class="small mb-3" style="display:none; color:var(--orange);">
+          ⏱️ Tiempo para completar la compra: <strong id="tiempo-compra-restante">05:00</strong>
+        </div>
+
         <div id="resumen-vacio" class="d-flex align-items-center gap-2 p-3 rounded mb-3" style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); color:var(--orange); font-size:0.85rem;">
           ⚠️ No hay asientos seleccionados
         </div>
@@ -111,6 +115,8 @@ const ID_CLIENTE = 1;
 let metodoPago = 'Tarjeta de Crédito';
 
 let compraFinalizada = false;
+let compraExpirada = false;
+let intervaloCompra = null;
 
 const carrito = JSON.parse(
   sessionStorage.getItem('tn_carrito') || 'null'
@@ -121,13 +127,16 @@ function money(n) { return '$' + Number(n).toLocaleString('es-AR'); }
 function renderResumen() {
   const cont = document.getElementById('resumen-asientos');
   const vacio = document.getElementById('resumen-vacio');
+  const temporizador = document.getElementById('temporizador-compra');
 
   if (!carrito || !carrito.asientos || carrito.asientos.length === 0) {
+    temporizador.style.display = 'none';
     vacio.style.display = 'flex';
     cont.innerHTML = '';
     return;
   }
   vacio.style.display = 'none';
+  temporizador.style.display = 'block';
 
   let subtotal = 0;
   let html = '';
@@ -147,6 +156,53 @@ function renderResumen() {
   document.getElementById('r-cargo').textContent = money(cargo);
   document.getElementById('r-total').textContent = money(total);
   document.getElementById('btn-total').textContent = money(total) + ' ARS';
+}
+
+function actualizarTemporizadorCompra() {
+  if (!carrito?.asientos?.length || compraExpirada) return;
+
+  const ahora = Date.now();
+  const expiracion = Math.min(...carrito.asientos.map(asiento => (
+    Number(asiento.expira_at) || ahora + 300000
+  )));
+  const segundos = Math.max(0, Math.ceil((expiracion - ahora) / 1000));
+  const minutos = String(Math.floor(segundos / 60)).padStart(2, '0');
+  const restantes = String(segundos % 60).padStart(2, '0');
+  const temporizador = document.getElementById('temporizador-compra');
+  document.getElementById('tiempo-compra-restante').textContent = `${minutos}:${restantes}`;
+
+  if (segundos <= 60) temporizador.style.color = '#f87171';
+  if (segundos === 0) expirarCompra();
+}
+
+async function expirarCompra() {
+  if (compraExpirada) return;
+  compraExpirada = true;
+  clearInterval(intervaloCompra);
+
+  const ids = carrito?.asientos?.map(asiento => Number(asiento.id_asiento)) ?? [];
+  if (ids.length > 0) {
+    await fetch('../api/liberar_seleccion.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        id_cliente: ID_CLIENTE,
+        id_evento: carrito.id_evento,
+        asientos: ids
+      })
+    }).catch(() => {});
+  }
+
+  sessionStorage.removeItem('tn_carrito');
+  document.getElementById('btn-confirmar').disabled = true;
+  document.getElementById('btn-confirmar').style.opacity = '0.5';
+  mostrarToast('Tiempo agotado', 'Las reservas fueron liberadas. Volvé a seleccionar tus asientos.', false);
+}
+
+function iniciarTemporizadorCompra() {
+  if (!carrito?.asientos?.length) return;
+  actualizarTemporizadorCompra();
+  intervaloCompra = setInterval(actualizarTemporizadorCompra, 1000);
 }
 
 document.querySelectorAll('.tn-payment-option').forEach(el => {
@@ -189,6 +245,10 @@ function validarFormulario() {
 }
 
 document.getElementById('btn-confirmar').addEventListener('click', async () => {
+  if (compraExpirada) {
+    mostrarToast('Tiempo agotado', 'Las reservas ya fueron liberadas.');
+    return;
+  }
   if (!carrito || !carrito.asientos || carrito.asientos.length === 0) {
     mostrarToast('Carrito vacío', 'Elegí al menos un asiento antes de confirmar.');
     return;
@@ -231,6 +291,7 @@ async function liberarCarritoAlSalir(usarBeacon = true) {
   if (
     liberacionEnviada ||
     compraFinalizada ||
+    compraExpirada ||
     !carrito ||
     !carrito.asientos ||
     carrito.asientos.length === 0
@@ -279,6 +340,7 @@ document.addEventListener('click', async (event) => {
 });
 
 renderResumen();
+iniciarTemporizadorCompra();
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
