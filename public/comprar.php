@@ -326,7 +326,7 @@ async function liberarCarritoAlSalir(usarBeacon = true) {
 
 window.addEventListener('pagehide', liberarCarritoAlSalir);
 window.addEventListener('beforeunload', (event) => {
-  if (compraFinalizada || compraExpirada || !carrito?.asientos?.length) return;
+  if (compraFinalizada || !carrito?.asientos?.length) return;
 
   event.preventDefault();
   event.returnValue = '';
