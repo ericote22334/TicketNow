@@ -41,9 +41,10 @@ se reinicie solo si se cae.
 
 ### 1.4 Liberador de reservas vencidas (cron)
 ```bash
-*/1 * * * * php /ruta/al/proyecto/cron/liberar_expiradas.php
+while true; do php /ruta/al/proyecto/cron/liberar_expiradas.php; sleep 1; done
 ```
-(o un loop de shell con `sleep 30` si necesitás más frecuencia que el mínimo de 1 min de cron)
+La frecuencia debe ser de pocos segundos para liberar los asientos a tiempo;
+el cron tradicional, que corre como máximo una vez por minuto, no alcanza.
 
 ## 2. Cómo se resuelve cada requisito
 
@@ -92,7 +93,7 @@ api/
 helpers/
   ws_notify.php                ← puente HTTP → WebSocket
 cron/
-  liberar_expiradas.php        ← libera holds vencidos (>5 min sin comprar)
+  liberar_expiradas.php        ← libera holds vencidos (15 s sin comprar)
 websocket/
   server.php                   ← proceso persistente (correr aparte)
   SeatHub.php                  ← lógica de broadcast (Ratchet)

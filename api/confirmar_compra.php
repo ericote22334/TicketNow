@@ -19,6 +19,7 @@
  */
 
 require __DIR__ . '/../config/db.php';
+require __DIR__ . '/../config/reservas.php';
 require __DIR__ . '/../helpers/ws_notify.php';
 apiHeaders();
 
@@ -43,15 +44,24 @@ try {
     $pdo->beginTransaction();
 
     // Traemos precio + estado de cada asiento, bloqueando las filas.
-    $in = implode(',', array_fill(0, count($asientos), '?'));
+    $placeholders = [];
+    $parametros = [':segundos' => RESERVA_EXPIRACION_SEGUNDOS];
+    foreach ($asientos as $indice => $id_asiento) {
+        $placeholder = ':asiento' . $indice;
+        $placeholders[] = $placeholder;
+        $parametros[$placeholder] = $id_asiento;
+    }
+    $in = implode(',', $placeholders);
     $stmtCheck = $pdo->prepare(
-        "SELECT a.id_asiento, a.estado, a.id_cliente_reserva, s.precio
+        "SELECT a.id_asiento, a.estado, a.id_cliente_reserva,
+                (a.reservado_en < (NOW() - INTERVAL :segundos SECOND)) AS reserva_expirada,
+                s.precio
          FROM asiento a
          INNER JOIN sector s ON s.id_sector = a.id_sector
          WHERE a.id_asiento IN ({$in})
          FOR UPDATE"
     );
-    $stmtCheck->execute($asientos);
+    $stmtCheck->execute($parametros);
     $filas = $stmtCheck->fetchAll();
 
     $fallidos = [];
@@ -63,7 +73,12 @@ try {
 
     foreach ($asientos as $id_asiento) {
         $f = $filasPorId[$id_asiento] ?? null;
-        if (!$f || $f['estado'] !== 'reservado' || (int) $f['id_cliente_reserva'] !== $id_cliente) {
+        if (
+            !$f
+            || $f['estado'] !== 'reservado'
+            || (int) $f['id_cliente_reserva'] !== $id_cliente
+            || (bool) $f['reserva_expirada']
+        ) {
             $fallidos[] = $id_asiento;
         } else {
             $subtotal += (float) $f['precio'];

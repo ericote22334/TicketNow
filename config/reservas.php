@@ -1,0 +1,3 @@
+<?php
+
+const RESERVA_EXPIRACION_SEGUNDOS = 15;

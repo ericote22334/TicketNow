@@ -85,7 +85,7 @@ include __DIR__ . '/includes/header.php';
         <div id="resumen-asientos"></div>
 
         <div id="temporizador-compra" class="small mb-3" style="display:none; color:var(--orange);">
-          ⏱️ Tiempo para completar la compra: <strong id="tiempo-compra-restante">05:00</strong>
+          ⏱️ Tiempo para completar la compra: <strong id="tiempo-compra-restante">00:15</strong>
         </div>
 
         <div id="resumen-vacio" class="d-flex align-items-center gap-2 p-3 rounded mb-3" style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); color:var(--orange); font-size:0.85rem;">
@@ -163,7 +163,7 @@ function actualizarTemporizadorCompra() {
 
   const ahora = Date.now();
   const expiracion = Math.min(...carrito.asientos.map(asiento => (
-    Number(asiento.expira_at) || ahora + 300000
+    Number(asiento.expira_at) || ahora + 15000
   )));
   const segundos = Math.max(0, Math.ceil((expiracion - ahora) / 1000));
   const minutos = String(Math.floor(segundos / 60)).padStart(2, '0');
@@ -179,6 +179,10 @@ async function expirarCompra() {
   if (compraExpirada) return;
   compraExpirada = true;
   clearInterval(intervaloCompra);
+  setTimeout(() => {
+    const idEvento = Number(carrito?.id_evento) || 1;
+    window.location.href = `asientos.php?id_evento=${encodeURIComponent(idEvento)}`;
+  }, 1500);
 
   const ids = carrito?.asientos?.map(asiento => Number(asiento.id_asiento)) ?? [];
   if (ids.length > 0) {
@@ -322,7 +326,7 @@ async function liberarCarritoAlSalir(usarBeacon = true) {
 
 window.addEventListener('pagehide', liberarCarritoAlSalir);
 window.addEventListener('beforeunload', (event) => {
-  if (compraFinalizada || !carrito?.asientos?.length) return;
+  if (compraFinalizada || compraExpirada || !carrito?.asientos?.length) return;
 
   event.preventDefault();
   event.returnValue = '';

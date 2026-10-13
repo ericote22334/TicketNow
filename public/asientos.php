@@ -85,7 +85,7 @@ include __DIR__ . '/includes/header.php';
           <span class="fw-bold" id="contador-seleccionados">0</span>
         </div>
         <div id="temporizador-reserva" class="small mb-3" style="display:none; color:var(--orange);">
-          ⏱️ Tiempo para comprar: <strong id="tiempo-restante">05:00</strong>
+          ⏱️ Tiempo para comprar: <strong id="tiempo-restante">00:15</strong>
         </div>
         <div id="lista-seleccionados" class="text-secondary text-center py-4">
           📍 Hacé click en un asiento verde para seleccionarlo
@@ -303,7 +303,7 @@ async function toggleAsiento(btn) {
   });
   expiraciones.set(
     idAsiento,
-    Date.now() + Number(data.expira_en_segundos ?? 300) * 1000
+    Date.now() + Number(data.expira_en_segundos ?? 15) * 1000
   );
   await refrescarMapa();
   renderPanel();

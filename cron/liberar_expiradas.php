@@ -1,20 +1,19 @@
 <?php
 /**
- * Libera automáticamente los asientos que quedaron "reservado" (hold)
- * por más de N minutos sin que el usuario completara la compra.
+ * Libera automáticamente los asientos reservados cuyo tiempo para comprar
+ * haya vencido.
  *
- * Programar para correr cada 30-60 segundos, por ejemplo con systemd timer
+ * Programar para correr cada 1-5 segundos, por ejemplo con systemd timer
  * o un loop de shell:
- *   while true; do php cron/liberar_expiradas.php; sleep 30; done
+ *   while true; do php cron/liberar_expiradas.php; sleep 1; done
  *
- * (En un cron real de Linux el mínimo es 1 minuto; para intervalos más
- * cortos conviene un loop de shell o un supervisor tipo systemd/pm2).
+ * El cron tradicional de Linux tiene una frecuencia mínima de 1 minuto,
+ * demasiado lenta para una reserva de 15 segundos.
  */
 
 require __DIR__ . '/../config/db.php';
+require __DIR__ . '/../config/reservas.php';
 require __DIR__ . '/../helpers/ws_notify.php';
-
-const MINUTOS_EXPIRACION = 5;
 
 $pdo = getPDO();
 
@@ -25,9 +24,9 @@ $stmtBuscar = $pdo->prepare(
      FROM asiento a
      INNER JOIN sector s ON s.id_sector = a.id_sector
      WHERE a.estado = 'reservado'
-       AND a.reservado_en < (NOW() - INTERVAL :minutos MINUTE)"
+       AND a.reservado_en < (NOW() - INTERVAL :segundos SECOND)"
 );
-$stmtBuscar->execute([':minutos' => MINUTOS_EXPIRACION]);
+$stmtBuscar->execute([':segundos' => RESERVA_EXPIRACION_SEGUNDOS]);
 $expirados = $stmtBuscar->fetchAll();
 
 if (empty($expirados)) {

@@ -22,12 +22,14 @@
  *     Si affected_rows = 0, alguien ya se quedó con el asiento -> se
  *     responde 409 "Asiento no disponible" inmediatamente.
  *
- * La reserva es temporal (dura, por ejemplo, 5 minutos - ver
+ * La reserva es temporal (ver RESERVA_EXPIRACION_SEGUNDOS en
+ * config/reservas.php y
  * cron/liberar_expiradas.php) hasta que se confirma la compra en
  * confirmar_compra.php.
  */
 
 require __DIR__ . '/../config/db.php';
+require __DIR__ . '/../config/reservas.php';
 require __DIR__ . '/../helpers/ws_notify.php';
 apiHeaders();
 
@@ -108,5 +110,5 @@ jsonResponse(200, [
     'ok' => true,
     'id_asiento' => $id_asiento,
     'estado' => 'reservado',
-    'expira_en_segundos' => 300,
+    'expira_en_segundos' => RESERVA_EXPIRACION_SEGUNDOS,
 ]);
